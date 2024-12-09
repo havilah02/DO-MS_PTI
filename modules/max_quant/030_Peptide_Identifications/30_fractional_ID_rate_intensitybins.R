@@ -2,7 +2,7 @@ init <- function() {
   
   type <- 'plot'
   box_title <- 'Fractional ID Rate by intensity'
-  help_text <- 'Fractional ID rate by binned by MS1 intensity'
+  help_text <- 'Fractional ID rate binned by MS1 intensity'
   source_file <- 'allPeptides'
   
   .validate <- function(data, input) {
@@ -17,13 +17,23 @@ init <- function() {
   .plot <- function(data, input) {
     .validate(data, input)
     plotdata <- .plotdata(data, input)
-
+    #print(colnames(plotdata))
+    
     validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
     
-    plotdata$bins<-cut(plotdata$Intensity, breaks=c(0,1e4,1e5,1e6,1e7,1e8,1e9,1e10,1e20))
+    # Check which column exists: MS.MS.count or Number.of.Pasef.MS.MS
+    if ("MS.MS.count" %in% colnames(plotdata)) {
+      plotdata$count <- plotdata$MS.MS.count
+    } else if ("Number.of.Pasef.MS.MS" %in% colnames(plotdata)) {
+      plotdata$count <- plotdata$Number.of.Pasef.MS.MS
+    } else {
+      validate(need(FALSE, "Neither 'MS.MS.count' nor 'Number.of.Pasef.MS.MS' found in the data."))
+    }
     
-    plotdata$count<-plotdata$MS.MS.Count
+    # Convert counts > 0 to 1
     plotdata$count[plotdata$count > 0] <- 1
+    
+    plotdata$bins <- cut(plotdata$Intensity, breaks=c(0,1e4,1e5,1e6,1e7,1e8,1e9,1e10,1e20))
     
     plotdata <- plotdata %>% 
       dplyr::group_by(Raw.file, bins) %>%
@@ -33,7 +43,6 @@ init <- function() {
       geom_bar(stat='identity', position='dodge') +
       labs(x='Experiment', y='Fraction identified per interval', fill='MS1 intensity interval') +
       theme_base(input=input, show_legend=T) +
-      # keep the legend
       theme(legend.position='right',
             legend.key=element_rect(fill='white'))
   }
@@ -50,4 +59,3 @@ init <- function() {
     dynamic_width_base=300
   ))
 }
-
