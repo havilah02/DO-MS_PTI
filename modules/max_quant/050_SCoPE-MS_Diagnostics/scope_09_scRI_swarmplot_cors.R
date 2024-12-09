@@ -7,6 +7,11 @@ init <- function() {
   
   .validate <- function(data, input) {
     validate(need(data()[['evidence']], paste0('Upload evidence.txt')))
+    # check for scope-ms design compatibility
+    required_columns <- paste0("Reporter.intensity.", 0:16)
+    if (!all(required_columns %in% colnames(data()[['evidence']]))){
+      return(validate(need(FALSE, "Loaded data does not contain reporter ion quantification")))
+    }
   }
   
   .plotdata <- function(data, input) {
