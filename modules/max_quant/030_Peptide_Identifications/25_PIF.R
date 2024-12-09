@@ -7,15 +7,17 @@ init <- function() {
   
   .validate <- function(data, input) {
     validate(need(data()[['evidence']], paste0('Upload evidence.txt')))
+    
+    # Check if PIF column has non-NA values
+    has_pif <- any(!is.na(data()[['evidence']][['PIF']]))
+    validate(need(has_pif, "No PIF values found. This is likely label-free data where PIF is not calculated."))
   }
   
   .plotdata <- function(data, input) {
-    
-    plotdata <- data()[['evidence']][,c('Raw.file', 'PIF','Type')] %>%
-      # restrict to between 0 and 1
-      dplyr::filter(Type != "MULTI-MATCH") %>% 
-      dplyr::select('Raw.file', 'PIF') %>%
-      dplyr::mutate_at('PIF', funs(ifelse(. > 1, 1, .), ifelse(. < 0, 0, .)))
+    plotdata <- data()[['evidence']] %>%
+      dplyr::filter(Type != "MULTI-MATCH") %>%  # Filter out multi-match rows
+      dplyr::select(Raw.file, PIF) %>%         # Select necessary columns
+      dplyr::mutate_at('PIF', funs(ifelse(. > 1, 1, .), ifelse(. < 0, 0, .))) # Restrict PIF between 0 and 1
     
     return(plotdata)
   }
@@ -28,22 +30,21 @@ init <- function() {
     
     ggplot(plotdata, aes(PIF)) + 
       facet_wrap(~Raw.file, nrow = 1, scales = "free_x") + 
-      geom_histogram(bins = 49) + 
+      geom_histogram(bins = 49, na.rm = TRUE) +  # Remove NA values in the plot
       coord_flip() +  
       labs(x='Precursor Ion Fraction (PIF)', y='Number of Peptides') +
       theme_base(input=input)
   }
   
   return(list(
-    type=type,
-    box_title=box_title,
-    help_text=help_text,
-    source_file=source_file,
-    validate_func=.validate,
-    plotdata_func=.plotdata,
-    plot_func=.plot,
-    dynamic_width=150,
-    dynamic_width_base=150
+    type = type,
+    box_title = box_title,
+    help_text = help_text,
+    source_file = source_file,
+    validate_func = .validate,
+    plotdata_func = .plotdata,
+    plot_func = .plot,
+    dynamic_width = 150,
+    dynamic_width_base = 150
   ))
 }
-
