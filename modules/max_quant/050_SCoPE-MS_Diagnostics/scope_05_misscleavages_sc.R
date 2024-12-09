@@ -7,26 +7,40 @@ init <- function() {
   
   .validate <- function(data, input) {
     validate(need(data()[['evidence']], paste0('Upload evidence.txt')))
+  
+  # check for scope-ms design compatibility
+  required_columns <- paste0("Reporter.intensity.", 0:16)
+  if (!all(required_columns %in% colnames(data()[['evidence']]))){
+    return(validate(need(FALSE, "Loaded data does not contain reporter ion quantification")))
   }
+}
   
   .plotdata <- function(data, input) {
     plotdata <- data()[['evidence']]
     
     ri<-paste0("Reporter.intensity.",0:16)
+    if (!all(ri %in% colnames(plotdata))){
+      return(validate(need(FALSE, "Reporter.intensity columns are missing. Cannot proceed with Scope-MS calculations.")))
+    }
+    # existing scope-ms processing logic
     ri.ind<-which(colnames(plotdata)%in%ri)
     raw.ind<-which(colnames(plotdata)%in%"Raw.file")
     miss.ind<-which(colnames(plotdata)%in%"Missed.cleavages")
+    
     ri.max<-which(colnames(plotdata)%in%names(colMeans(plotdata[,ri.ind]))[ colMeans(plotdata[,ri.ind])==max(colMeans(plotdata[,ri.ind])) ] )
-    
     plotdata[,ri.ind]<-plotdata[,ri.ind] / plotdata[,ri.max]
-    plotdata<-melt(plotdata[,c(raw.ind, miss.ind, ri.ind[ri.ind!=ri.max])], id.vars = c("Raw.file","Missed.cleavages"))
     
-    plotdata$value[plotdata$value==Inf]<-NA
+    plotdata <- reshape2::melt(plotdata[, c(raw.ind, miss.ind, ri.ind[ri.ind != ri.max])],
+                               id.vars = c("Raw.file", "Missed.cleavages"))
+    #plotdata<-melt(plotdata[,c(raw.ind, miss.ind, ri.ind[ri.ind!=ri.max])], id.vars = c("Raw.file","Missed.cleavages"))
+    
+    # handle infinite values
+    plotdata$value[plotdata$value==Inf]<-NA # error
     plotdata$Missed.cleavages[plotdata$Missed.cleavages>0]<-1
     
     plotdata<-plotdata %>% 
       dplyr::group_by(Missed.cleavages, Raw.file,variable) %>%
-      dplyr::summarise(mean_val = mean(value, na.rm=T)) %>% 
+      dplyr::summarise(mean_val = mean(value, na.rm=TRUE)) %>% 
       dplyr::group_by(Raw.file, variable) %>%
       dplyr::summarise(miss_rat = mean_val[Missed.cleavages==1] / mean_val[Missed.cleavages==0] )
     
@@ -37,9 +51,9 @@ init <- function() {
   
   .plot <- function(data, input) {
     .validate(data, input)
-    plotdata <- .plotdata(data, input)
+    plotdata <- .plotdata(data, input) # error
     
-    #validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
+    validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
     
     ggplot(plotdata, aes(x=Raw.file, y=miss_rat, color=variable)) +
       geom_jitter(width=0.2) +
