@@ -1,8 +1,8 @@
 init <- function() {
   
   type <- 'plot'
-  box_title <- ''
-  help_text <- ''
+  box_title <- 'PEP Distribution Plot and Experimental Ranking'
+  help_text <- 'generate a PEP (Posterior Error Probability) distribution plot for peptide identifications while ranking experiments by peptide counts'
   source_file <- 'evidence'
   
   .validate <- function(data, input) {
@@ -17,7 +17,9 @@ init <- function() {
     peps <- seq(log10(max(c(min(plotdata$PEP)), 1e-5)), log10(max(plotdata$PEP)), length.out=500)
     peps <- c(log10(.Machine$double.xmin), peps)
     
-    plotdata <- plotdata %>%
+    validate(need(any(!is.na(plotdata$peps)), "No values to plot"))
+    
+    plotdata <- plotdata %>% #error
       dplyr::mutate(bin=findInterval(PEP, 10**peps)) %>%
       dplyr::group_by(Raw.file, bin) %>%
       dplyr::summarise(n=dplyr::n()) %>%
@@ -27,11 +29,12 @@ init <- function() {
     return(plotdata)
   }
   
-  .plot <- function(data, input) {
+  .plot <- function(data, input) { 
     .validate(data, input)
     plotdata <- .plotdata(data, input)
     
     validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
+    validate(need(any(!is.na(plotdata$peps)), "Nope"))
     
     # Rank the Experiments by most number of peptides observed
     
