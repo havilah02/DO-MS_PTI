@@ -7,6 +7,12 @@ init <- function() {
   
   .validate <- function(data, input) {
     validate(need(data()[['evidence']], paste0('Upload evidence.txt')))
+    
+    # check for scope-ms design compatibility
+    required_columns <- paste0("Reporter.intensity.", 0:16)
+    if (!all(required_columns %in% colnames(data()[['evidence']]))){
+      return(validate(need(FALSE, "Loaded data does not contain reporter ion quantification")))
+    }
   }
   
   .plotdata <- function(data, input) {
@@ -21,7 +27,7 @@ init <- function() {
     plotdata[,ri.ind]<-plotdata[,ri.ind] / plotdata[,ri.max]
     plotdata<-melt(plotdata[,c(raw.ind, miss.ind, ri.ind[ri.ind!=ri.max])], id.vars = c("Raw.file","Retention.time"))
     
-    plotdata$value[plotdata$value==Inf]<-NA
+    plotdata$value[plotdata$value==Inf]<-NA #error
     
     rtq<-quantile(plotdata$Retention.time)
     plotdata$kp<-3
@@ -43,9 +49,9 @@ init <- function() {
   
   .plot <- function(data, input) {
     .validate(data, input)
-    plotdata <- .plotdata(data, input)
+    plotdata <- .plotdata(data, input) #error
     
-    #validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
+    validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
     
     ggplot(plotdata, aes(x=Raw.file, y=miss_rat, color=variable)) +
       geom_jitter(width=0.2) +
