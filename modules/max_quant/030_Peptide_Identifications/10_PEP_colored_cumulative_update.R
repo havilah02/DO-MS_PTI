@@ -13,51 +13,49 @@ init <- function() {
     plotdata <- data()[['evidence']][,c('Raw.file', 'PEP','Type')]
     plotdata <- plotdata %>% dplyr::filter(Type != "MULTI-MATCH")
     plotdata <- plotdata %>% dplyr::select('Raw.file', 'PEP')
-    # build log10 PEP vector
-    peps <- seq(log10(max(c(min(plotdata$PEP)), 1e-5)), log10(max(plotdata$PEP)), length.out=500)
-    peps <- c(log10(.Machine$double.xmin), peps)
     
-    plotdata <- plotdata %>%
-      dplyr::mutate(bin=findInterval(PEP, 10**peps)) %>%
+    # creating a sequence of logarithmically spaced bins for the PEP values
+    # build log10 PEP vector
+    min_pep <- max(c(min(plotdata$PEP, na.rm = TRUE), 1e-5)) # making sure the minimum is 1e-5
+    max_pep <- max(plotdata$PEP, na.rm = TRUE)
+    peps <- seq(log10(min_pep), log10(max_pep), length.out = 500) # create 500 bins
+    peps <- c(log10(.Machine$double.xmin), peps) # add machine minimum
+    # peps <- seq(log10(max(c(min(plotdata$PEP)), 1e-5)), log10(max(plotdata$PEP)), length.out=500)
+    # peps <- c(log10(.Machine$double.xmin), peps)
+    
+    plotdata <- plotdata %>%  #error
+      dplyr::mutate(bin=findInterval(PEP, 10**peps, rightmost.closed = TRUE)) %>%
       dplyr::group_by(Raw.file, bin) %>%
-      dplyr::summarise(n=dplyr::n()) %>%
-      dplyr::mutate(cy=cumsum(n),
-                    pep=10**peps[bin])
-
+      dplyr::summarise(n=dplyr::n(), .groups = "drop") %>%
+      dplyr::mutate(cy=cumsum(n), # cumulative number of peptides
+                    pep = ifelse(bin <= length(peps), 10**peps[bin], NA) #bin to pep conversion
+      ) %>%
+      dplyr::filter(!is.na(pep)) # remove any rows with invalid bin references
+    #pep=10**peps[bin])
     return(plotdata)
   }
   
   .plot <- function(data, input) {
     .validate(data, input)
-    plotdata <- .plotdata(data, input)
+    plotdata <- .plotdata(data, input)  #error
     
     validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
     
-    # Rank the Experiments by most number of peptides observed
+    # rank the experiments by cumulative ID
+    rank_info <- plotdata %>%
+      dplyr::group_by(Raw.file) %>%
+      dplyr::summarise(max_cy = max(cy, na.rm = TRUE)) %>%
+      dplyr::arrange(desc(max_cy)) %>%
+      dplyr::mutate(rank_ord = row_number())
     
-    maxnum <- c()
-    rawnames <- c()
+    plotdata <- plotdata %>%
+      dplyr::left_join(rank_info, by = "Raw.file")
     
-    for(X in unique(plotdata$Raw.file)){
-      maxnum <- c(maxnum, max(plotdata$cy[plotdata$Raw.file %in% X]) )
-      rawnames <- c(rawnames, X)
-    }
-    
-    names(maxnum) <- rawnames
-    rank_exp <- maxnum[order(maxnum, decreasing = T)]
-    rank_exp_ord <- seq(1, length(rank_exp),1)
-    names(rank_exp_ord) <- names(rank_exp)
-    plotdata$rank_ord <- NA
-    
-    for(X in levels(plotdata$Raw.file)) {
-      plotdata$rank_ord[plotdata$Raw.file %in% X] <- rank_exp_ord[X]
-    }
-    
-    cc <- scales::seq_gradient_pal('red', 'blue', 'Lab')(seq(0, 1, length.out=length(rank_exp_ord)))
+    cc <- scales::seq_gradient_pal('red', 'blue', 'Lab')(seq(0, 1, length.out = nrow(rank_info)))
     
     ggplot(plotdata, aes(x=pep, color=factor(rank_ord), y=cy, group=Raw.file)) + 
       geom_line(size = input$figure_line_width) +
-      scale_colour_manual(name='Experiment', values=cc, labels=names(rank_exp_ord)) +
+      scale_colour_manual(name='Experiment', values=cc, labels=rank_info$Raw.file) +
       coord_flip() + 
       scale_x_log10(limits=c(.00009,.1), breaks=c(.0001,.001,.01,.1), 
                     labels=scales::trans_format('log10', scales::math_format(10^.x))) + 
