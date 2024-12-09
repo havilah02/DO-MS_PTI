@@ -1,8 +1,8 @@
 init <- function() {
   
   type <- 'plot'
-  box_title <- ''
-  help_text <- ''
+  box_title <- 'TMT Experiment Analysis: Peptide Distribution Plot'
+  help_text <- 'This plot visualizes the distribution of peptides across experiments searched with TMT as a variable modification. Please upload the evidence.txt file containing peptide information for each raw file. The plot will show the cumulative number of peptides detected based on their PEP values, with experiments ranked by the highest number of peptides observed.'
   source_file <- 'evidence'
   
   .validate <- function(data, input) {
@@ -18,14 +18,16 @@ init <- function() {
     peps <- c(log10(.Machine$double.xmin), peps)
     
     plotdata <- plotdata %>%
-      dplyr::mutate(bin=findInterval(PEP, 10**peps)) %>%
+      dplyr::mutate(bin=findInterval(PEP, 10**peps, rightmost.closed = TRUE)) %>%
       dplyr::group_by(Raw.file, bin) %>%
-      dplyr::summarise(n=dplyr::n()) %>%
-      dplyr::mutate(cy=cumsum(n),
-                    pep=10**peps[bin])
+      dplyr::summarise(n=dplyr::n(), .groups = "drop") %>%
+      dplyr::mutate(cy=cumsum(n), # cumulative number of peptides
+                    pep = ifelse(bin <= length(peps), 10**peps[bin], NA))
+      #dplyr::mutate(cy=cumsum(n), pep=10**peps[bin])
 
     return(plotdata)
   }
+
   
   .plot <- function(data, input) {
     .validate(data, input)
