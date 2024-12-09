@@ -7,6 +7,11 @@ init <- function() {
   
   .validate <- function(data, input) {
     validate(need(data()[['evidence']], paste0('Upload evidence.txt')))
+    # check for scope-ms design compatibility
+    required_columns <- paste0("Reporter.intensity.", 0:16)
+    if (!all(required_columns %in% colnames(data()[['evidence']]))){
+      return(validate(need(FALSE, "Loaded data does not contain reporter ion quantification")))
+    }
   }
   
   .plotdata <- function(data, input) {
@@ -25,7 +30,7 @@ init <- function() {
     
     plotdata$value[plotdata$value==Inf]<-NA
 
-    plotdata<-plotdata %>% 
+    plotdata<-plotdata %>% #error
       dplyr::group_by(Raw.file,variable) %>%
       dplyr::summarise(mean_val = mean(value, na.rm=T))
 
@@ -36,7 +41,7 @@ init <- function() {
     .validate(data, input)
     plotdata <- .plotdata(data, input)
     
-    #validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
+    validate(need((nrow(plotdata) > 1), paste0('No Rows selected')))
     
     ggplot(plotdata, aes(x=Raw.file, y=mean_val, color=variable)) +
       geom_jitter(width=0.2) +
