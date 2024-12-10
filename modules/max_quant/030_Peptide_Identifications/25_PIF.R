@@ -10,7 +10,7 @@ init <- function() {
     
     # Check if PIF column has non-NA values
     has_pif <- any(!is.na(data()[['evidence']][['PIF']]))
-    validate(need(has_pif, "No PIF values found. This is likely label-free data where PIF is not calculated."))
+    validate(need(has_pif, "No PIF values found. This is likely timsTOF data where PIF is not calculated."))
   }
   
   .plotdata <- function(data, input) {
