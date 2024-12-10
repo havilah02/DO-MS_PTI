@@ -16,7 +16,6 @@ init <- function() {
   
   .plotdata <- function(data, input) {
     plotdata <- data()[['evidence']][,c('Raw.file', 'Retention.time', 'PEP','Type')]
-    print(colnames(data()[['evidence']]))
     plotdata <- plotdata %>% dplyr::filter(Type != "MULTI-MATCH")
     validate(need((nrow(plotdata) > 0), "No valid data after filtering Type"))
     plotdata <- plotdata %>% dplyr::select('Raw.file', 'Retention.time', 'PEP')
